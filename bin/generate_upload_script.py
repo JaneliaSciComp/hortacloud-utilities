@@ -28,16 +28,14 @@ def process_images(base, img):
     source = "/".join([base, "ktx/"])
     target = "/".join([BUCKET, "images", ARG.SAMPLE, "ktx/"])
     if os.path.exists(source):
-        img.write("aws s3 sync %s %s --only-show-errors --profile FlyLightPDSAdmin\n"
-                  % (source, target))
+        img.write(f"aws s3 sync {source} {target} --only-show-errors --profile FlyLightPDSAdmin\n")
     else:
         LOGGER.warning("Could not find %s", source)
     target = "/".join([BUCKET, "images", ARG.SAMPLE])
     for file in ["default.0.tif", "default.1.tif", "tilebase.cache.yml", "transform.txt"]:
         source = "/".join([base, file])
         if os.path.exists(source):
-            img.write("aws s3 cp %s %s/ --only-show-errors --profile FlyLightPDSAdmin\n"
-                      % (source, target))
+            img.write(f"aws s3 cp {source} {target}/ --only-show-errors --profile FlyLightPDSAdmin\n")
         else:
             LOGGER.warning("Could not find %s", source)
 
@@ -143,7 +141,7 @@ def process_sample():
         for test_base in IMAGE_BASE:
             for smp in glob.glob(test_base + "/*/ktx"):
                 sdate = smp.split("/")[-2]
-                if re.search("^\d\d\d\d-\d\d-\d\d", sdate):
+                if re.search(r"^\d\d\d\d-\d\d-\d\d", sdate):
                     sample_date.append(sdate)
         sample_date.sort(reverse=True)
         sample_date.insert(0, "(Enter manually)")
