@@ -35,7 +35,8 @@ def process_images(base, img):
     for file in ["default.0.tif", "default.1.tif", "tilebase.cache.yml", "transform.txt"]:
         source = "/".join([base, file])
         if os.path.exists(source):
-            img.write(f"aws s3 cp {source} {target}/ --only-show-errors --profile FlyLightPDSAdmin\n")
+            img.write(f"aws s3 cp {source} {target}/ --only-show-errors "
+                      + "--profile FlyLightPDSAdmin\n")
         else:
             LOGGER.warning("Could not find %s", source)
 
@@ -52,9 +53,8 @@ def process_registration(clu):
     clu.write("echo 'Uploading registration'\n")
     if os.path.exists(source):
         target = "/".join([BUCKET, "registration", ARG.SAMPLE])
-        clu.write(("bsub -J reg%s -n 4 -P mouselight 'aws s3 sync " % (mmdd))
-                  + ("%s/ %s/ --only-show-errors --profile FlyLightPDSAdmin'\n"
-                     % (source, target)))
+        clu.write(f"bsub -J reg{mmdd} -n 4 -P mouselight 'aws s3 sync "
+                  + f"{source}/ {target}/ --only-show-errors --profile FlyLightPDSAdmin'\n")
     else:
         LOGGER.warning("Could not find %s", source)
 
@@ -82,13 +82,12 @@ def process_segmentation(clu):
                 LOGGER.warning("Could not find %s", source)
         else:
             done = True
-    target = "/".join([BUCKET, "segmentation/%s" % (ARG.SAMPLE)])
+    target = "/".join([BUCKET, f"segmentation/{ARG.SAMPLE}"])
     counter = 1
     clu.write("echo 'Uploading segmentation'\n")
     for source in suffix:
-        clu.write(("bsub -J seg%s-%s -n 4 -P mouselight 'aws s3 sync " % (mmdd, str(counter)))
-                  + ("%s/ %s/ --only-show-errors --profile FlyLightPDSAdmin'\n"
-                     % (source, target)))
+        clu.write(f"bsub -J seg{mmdd}-{str(counter)} -n 4 -P mouselight 'aws s3 sync "
+                  + f"{source}/ {target}/ --only-show-errors --profile FlyLightPDSAdmin'\n")
         counter += 1
 
 
@@ -108,10 +107,9 @@ def process_tracings(clu):
             sub2 = "shared_tracing/Finished_Neurons"
         source = "/".join([BASE, sub2, ARG.SAMPLE])
         if os.path.exists(source):
-            target = "/".join([BUCKET, "tracings/%s/%s" % (sub, ARG.SAMPLE)])
-            clu.write(("bsub -J tra%s-%s -n 4 -P mouselight 'aws s3 sync " % (mmdd, str(counter)))
-                      + ("%s/ %s/ --only-show-errors --profile FlyLightPDSAdmin'\n"
-                         % (source, target)))
+            target = "/".join([BUCKET, f"tracings/{sub}/{ARG.SAMPLE}"])
+            clu.write(f"bsub -J tra{mmdd}-{str(counter)} -n 4 -P mouselight 'aws s3 sync "
+                      + f"{source}/ {target}/ --only-show-errors --profile FlyLightPDSAdmin'\n")
             counter += 1
         else:
             LOGGER.warning("Could not find %s", source)
@@ -129,8 +127,8 @@ def check_ktx(base):
     return "block_8_xy_.ktx" in files
 
 
-def process_sample():
-    ''' Process the specified sample to create upload files.
+def get_sample():
+    ''' Allow the user to select a sample.
         Keyword arguments:
           None
         Returns:
@@ -152,6 +150,16 @@ def process_sample():
                                  )]
         answer = inquirer.prompt(question)
         ARG.SAMPLE = answer["sample"]
+
+
+def process_sample():
+    ''' Process the specified sample to create upload files.
+        Keyword arguments:
+          None
+        Returns:
+          None
+    '''
+    get_sample()
     question = [inquirer.Checkbox("products",
                                   message="Enter products to upload",
                                   choices=["images", "registration", "segmentation", "tracings"],
@@ -178,19 +186,16 @@ def process_sample():
         if not check_ktx(ibase):
             LOGGER.error("Image files under %s use an obsolete naming scheme", ibase)
             sys.exit(-1)
-        img = open("%s_images.sh" % (ARG.SAMPLE), "w")
-        process_images(ibase, img)
-        img.close()
+        with open(f"{ARG.SAMPLE}_images.sh", "w", encoding="utf8") as img:
+            process_images(ibase, img)
     if any(itm in products for itm in ["registration", "segmentation", "tracings"]):
-        clu = open("%s_cluster.sh" % (ARG.SAMPLE), "w")
-    if "registration" in products:
-        process_registration(clu)
-    if "segmentation" in products:
-        process_segmentation(clu)
-    if "tracings" in products:
-        process_tracings(clu)
-    if any(itm in products for itm in ["registration", "segmentation", "tracings"]):
-        clu.close()
+        with open(f"{ARG.SAMPLE}_cluster.sh", "w", encoding="utf8") as clu:
+            if "registration" in products:
+                process_registration(clu)
+            if "segmentation" in products:
+                process_segmentation(clu)
+            if "tracings" in products:
+                process_tracings(clu)
 
 
 if __name__ == '__main__':
