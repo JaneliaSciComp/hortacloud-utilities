@@ -4,6 +4,8 @@
 '''
 
 import argparse
+import glob
+import re
 import os
 import sys
 import colorlog
@@ -22,6 +24,7 @@ def process_images(base, img):
         Returns:
           None
     '''
+    LOGGER.info(f"Using images from {base}")
     source = "/".join([base, "ktx/"])
     target = "/".join([BUCKET, "images", ARG.SAMPLE, "ktx/"])
     if os.path.exists(source):
@@ -136,7 +139,19 @@ def process_sample():
           None
     '''
     if not ARG.SAMPLE:
-        question = [inquirer.Text("sample", message="Sample date (YYYY-MM-DD)")]
+        sample_date = []
+        for test_base in IMAGE_BASE:
+            for smp in glob.glob(test_base + "/*/ktx"):
+                sdate = smp.split("/")[-2]
+                if re.search("^\d\d\d\d-\d\d-\d\d", sdate):
+                    sample_date.append(sdate)
+        sample_date.sort(reverse=True)
+        sample_date.insert(0, "(Enter manually)")
+        question = [inquirer.List("sample",
+                                  message="Sample date",
+                                  choices=sample_date,
+                                  default=sample_date[1]
+                                 )]
         answer = inquirer.prompt(question)
         ARG.SAMPLE = answer["sample"]
     question = [inquirer.Checkbox("products",
