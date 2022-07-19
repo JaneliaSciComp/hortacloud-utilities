@@ -10,7 +10,6 @@ import os
 import socket
 import sys
 import boto3
-import botocore
 import requests
 import colorlog
 from tqdm.auto import tqdm
@@ -27,6 +26,8 @@ MISSING_NEURON = {}
 S3_CLIENT = S3_RESOURCE = ""
 # General
 BUCKET = "janelia-mouselight-imagery"
+URL_PREFIX = {"http": f"https://{BUCKET}.s3.amazonaws.com",
+              "s3": f"s3://{BUCKET}"}
 TEMPLATE = "An exception of type %s occurred. Arguments:\n%s"
 COUNT = {"date_aws" : 0, "insert": 0, "metadata": 0}
 
@@ -54,6 +55,7 @@ def call_responder(server, endpoint, payload='', authenticate=False):
         Returns:
           JSON response
     '''
+    #pylint: disable=R1710
     if not CONFIG[server]['url']:
         terminate_program("No URL found for %s" % (server))
     url = CONFIG[server]['url'] + endpoint
@@ -176,7 +178,7 @@ def process_prefix(tloc):
         pre = "/".join(["tracings", tloc, date])
         names = get_prefixes(BUCKET, prefix=pre)
         if not names:
-            terminate_program("%s/%s has no prefixes on AWS S3" % (tloc, date))
+            terminate_program(f"{tloc}/{date} has no prefixes on AWS S3")
         mdata[date] = {}
         populated = False
         for name in tqdm(names, desc="Neuron tag", position=1, leave=False):
@@ -191,7 +193,13 @@ def process_prefix(tloc):
             somaloc = read_object(key)
             if somaloc:
                 payload["somaLocation"] = somaloc
-            mdata[date][MAP[date][name]] = payload
+            swc_prefix = "/".join([pre, name])
+            for swc in ["consensus", "dendrite"]:
+                key = "/".join([swc_prefix, swc]) + ".swc"
+                if read_object(key):
+                    payload[swc] = "/".join([URL_PREFIX[ARG.URL], key])
+            mdata[date][MAP[date][name]] = {"title": date + " MouseLight published neurons",
+                                            "neurons": payload}
         if populated:
             key = "/".join(["neurons", tloc, date, "metadata.json"])
             COUNT["metadata"] += 1
@@ -199,9 +207,16 @@ def process_prefix(tloc):
                 # AWS S3
                 try:
                     obj = S3_RESOURCE.Object(BUCKET, key)
-                    result = obj.put(Body=json.dumps(mdata[date]))
+                    _ = obj.put(Body=json.dumps(mdata[date]))
                 except Exception as err:
                     terminate_program(TEMPLATE % (type(err).__name__, err.args))
+                if tloc == "tracing_complete":
+                    key = "/".join(["images", date, "neurons.json"])
+                    try:
+                        obj = S3_RESOURCE.Object(BUCKET, key)
+                        _ = obj.put(Body=json.dumps(mdata[date]))
+                    except Exception as err:
+                        terminate_program(TEMPLATE % (type(err).__name__, err.args))
 
 
 def process_neurons():
@@ -226,6 +241,8 @@ if __name__ == '__main__':
         description="Update neurons on AWS S3")
     PARSER.add_argument('--manifold', dest='MANIFOLD', action='store',
                         default='prod', choices=['dev', 'prod'], help='manifold')
+    PARSER.add_argument('--url', dest='URL', action='store',
+                        default='s3', choices=['http', 's3'], help='URL style (http or s3)')
     PARSER.add_argument('--write', dest='WRITE', action='store_true',
                         default=False,
                         help='Flag, Actually modify image state')
