@@ -10,6 +10,7 @@ import os
 import socket
 import sys
 import boto3
+import inquirer
 import requests
 import colorlog
 from tqdm.auto import tqdm
@@ -179,7 +180,7 @@ def process_prefix(tloc):
         names = get_prefixes(BUCKET, prefix=pre)
         if not names:
             terminate_program(f"{tloc}/{date} has no prefixes on AWS S3")
-        mdata[date] = {}
+        mdata = {}
         populated = False
         for name in tqdm(names, desc="Neuron tag", position=1, leave=False):
             if name not in MAP[date]:
@@ -198,23 +199,24 @@ def process_prefix(tloc):
                 key = "/".join([swc_prefix, swc]) + ".swc"
                 if read_object(key):
                     payload[swc] = "/".join([URL_PREFIX[ARG.URL], key])
-            mdata[date][MAP[date][name]] = {"title": date + " MouseLight published neurons",
-                                            "neurons": payload}
+            mdata[MAP[date][name]] = payload
         if populated:
             key = "/".join(["neurons", tloc, date, "metadata.json"])
             COUNT["metadata"] += 1
+            payload = {"title": date + " MouseLight published neurons",
+                       "neurons": mdata}
             if ARG.WRITE:
                 # AWS S3
                 try:
                     obj = S3_RESOURCE.Object(BUCKET, key)
-                    _ = obj.put(Body=json.dumps(mdata[date]))
+                    _ = obj.put(Body=json.dumps(payload))
                 except Exception as err:
                     terminate_program(TEMPLATE % (type(err).__name__, err.args))
                 if tloc == "tracing_complete":
                     key = "/".join(["images", date, "neurons.json"])
                     try:
                         obj = S3_RESOURCE.Object(BUCKET, key)
-                        _ = obj.put(Body=json.dumps(mdata[date]))
+                        _ = obj.put(Body=json.dumps(payload))
                     except Exception as err:
                         terminate_program(TEMPLATE % (type(err).__name__, err.args))
 
@@ -227,7 +229,13 @@ def process_neurons():
           None
     '''
     get_mapping()
-    for tloc in ("Finished_Neurons", "tracing_complete"):
+    choices = {"Finished neurons": "Finished_Neurons",
+               "Tracing complete": "tracing_complete"}
+    quest = [inquirer.Checkbox('checklist',
+                               message='Select tracings to process',
+                               choices=choices.keys(), default=choices)]
+    tracings = inquirer.prompt(quest)
+    for tloc in [choices[key] for key in tracings["checklist"]]:
         process_prefix(tloc)
     print(f"Dates in AWS S3:         {len(DATE)}")
     print(f"Missing neuron mappings: {len(MISSING_NEURON)}")
