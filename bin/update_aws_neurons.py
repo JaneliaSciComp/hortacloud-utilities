@@ -198,7 +198,7 @@ def process_prefix(tloc):
             for swc in ["consensus", "dendrite"]:
                 key = "/".join([swc_prefix, swc]) + ".swc"
                 if read_object(key):
-                    payload[swc] = "/".join([URL_PREFIX[ARG.URL], key])
+                    payload[swc] = "/".join(["../..", key])
             mdata[MAP[date][name]] = payload
         if populated:
             key = "/".join(["neurons", tloc, date, "metadata.json"])
