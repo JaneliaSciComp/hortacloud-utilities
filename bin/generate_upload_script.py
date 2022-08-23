@@ -16,6 +16,21 @@ IMAGE_BASE = ["/nrs/mouselight/SAMPLES", "/nearline/mouselight/data/RENDER_archi
 BUCKET = "s3://janelia-mouselight-imagery"
 
 
+def get_target(base_dir, suffix=None):
+    ''' Generate a target prefix for AWS S3
+        Keyword arguments:
+          base_dir: base prefix
+          suffix: suffix
+        Returns:
+          AWS S3 target prefix
+    '''
+    trg = re.search("\d{4}-\d{2}-\d{2}", ARG.SAMPLE)[0]
+    dlist = [BUCKET, base_dir, trg]
+    if suffix:
+        dlist.append(suffix)
+    return "/".join(dlist)
+
+
 def process_images(base, img):
     ''' Write copy commands for images.
         Keyword arguments:
@@ -26,12 +41,12 @@ def process_images(base, img):
     '''
     LOGGER.info(f"Using images from {base}")
     source = "/".join([base, "ktx/"])
-    target = "/".join([BUCKET, "images", ARG.SAMPLE, "ktx/"])
+    target = get_target("images", "ktx/")
     if os.path.exists(source):
         img.write(f"aws s3 sync {source} {target} --only-show-errors --profile FlyLightPDSAdmin\n")
     else:
         LOGGER.warning("Could not find %s", source)
-    target = "/".join([BUCKET, "images", ARG.SAMPLE])
+    target = get_target("images")
     for file in ["default.0.tif", "default.1.tif", "tilebase.cache.yml", "transform.txt"]:
         source = "/".join([base, file])
         if os.path.exists(source):
@@ -52,7 +67,7 @@ def process_registration(clu):
     source = "/".join([BASE, "registration/Database", ARG.SAMPLE])
     clu.write("echo 'Uploading registration'\n")
     if os.path.exists(source):
-        target = "/".join([BUCKET, "registration", ARG.SAMPLE])
+        target = get_target("registration")
         clu.write(f"bsub -J reg{mmdd} -n 4 -P mouselight 'aws s3 sync "
                   + f"{source}/ {target}/ --only-show-errors --profile FlyLightPDSAdmin'\n")
     else:
@@ -82,7 +97,8 @@ def process_segmentation(clu):
                 LOGGER.warning("Could not find %s", source)
         else:
             done = True
-    target = "/".join([BUCKET, f"segmentation/{ARG.SAMPLE}"])
+    #target = "/".join([BUCKET, f"segmentation/{ARG.SAMPLE}"])
+    target = get_target("segmentation")
     counter = 1
     clu.write("echo 'Uploading segmentation'\n")
     for source in suffix:
@@ -107,7 +123,8 @@ def process_tracings(clu):
             sub2 = "shared_tracing/Finished_Neurons"
         source = "/".join([BASE, sub2, ARG.SAMPLE])
         if os.path.exists(source):
-            target = "/".join([BUCKET, f"tracings/{sub}/{ARG.SAMPLE}"])
+            #target = "/".join([BUCKET, f"tracings/{sub}/{ARG.SAMPLE}"])
+            target = get_target(f"tracings/{sub}")
             clu.write(f"bsub -J tra{mmdd}-{str(counter)} -n 4 -P mouselight 'aws s3 sync "
                       + f"{source}/ {target}/ --only-show-errors --profile FlyLightPDSAdmin'\n")
             counter += 1
