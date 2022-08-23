@@ -10,7 +10,7 @@ import os
 import socket
 import sys
 import boto3
-import botocore
+import inquirer
 import requests
 import colorlog
 from tqdm.auto import tqdm
@@ -21,12 +21,18 @@ from aws_s3_lib import get_prefixes
 # Configuration
 CONFIG = {'config': {'url': os.environ.get('CONFIG_SERVER_URL')}}
 AWS = {}
+AREA = {}
 MAP = {}
+STRUCT = {}
+PARENT = {}
+MISSING = {}
 DATE = {}
 MISSING_NEURON = {}
 S3_CLIENT = S3_RESOURCE = ""
 # General
 BUCKET = "janelia-mouselight-imagery"
+URL_PREFIX = {"http": f"https://{BUCKET}.s3.amazonaws.com",
+              "s3": f"s3://{BUCKET}"}
 TEMPLATE = "An exception of type %s occurred. Arguments:\n%s"
 COUNT = {"date_aws" : 0, "insert": 0, "metadata": 0}
 
@@ -54,6 +60,7 @@ def call_responder(server, endpoint, payload='', authenticate=False):
         Returns:
           JSON response
     '''
+    #pylint: disable=R1710
     if not CONFIG[server]['url']:
         terminate_program("No URL found for %s" % (server))
     url = CONFIG[server]['url'] + endpoint
@@ -129,7 +136,7 @@ def get_mapping():
         Returns:
           None
     '''
-    payload = {"query":"{injections {sample {sampleDate} neurons {idString tag}}}"}
+    payload = {"query":"{injections {sample {sampleDate} neurons {idString tag} brainArea {name}}}"}
     response = call_responder("neuronbrowser", "", json.dumps(payload))
     for row in tqdm(response["data"]["injections"], desc="Injections"):
         if not (row["sample"] and row['neurons']):
@@ -139,6 +146,17 @@ def get_mapping():
             MAP[sdate] = {}
         for neuron in row["neurons"]:
             MAP[sdate][neuron["tag"]] = neuron["idString"]
+        AREA[sdate] = row["brainArea"]["name"]
+    payload = {"query":"{brainAreas{structureId name parentStructureId}}"}
+    response = call_responder("neuronbrowser", "", json.dumps(payload))
+    for row in tqdm(response["data"]["brainAreas"], desc="Brain areas"):
+        if row["name"] in STRUCT:
+            terminate_program(f"{row['name']} is duplicated")
+        if "," in row["name"]:
+            terminate_program(row["name"])
+        PARENT[row["structureId"]] = {"name": row["name"],
+                                      "parent": row["parentStructureId"]}
+        STRUCT[row["name"]] = row["structureId"]
 
 
 def read_object(key):
@@ -156,6 +174,25 @@ def read_object(key):
         terminate_program(TEMPLATE % (type(err).__name__, err.args))
     txt = obj['Body'].read().decode('utf-8')
     return txt
+
+
+def traverse_struct(sid, additional):
+    ''' Traverse the brain area structure for a specific area
+        Keyword arguments:
+          sid: area ID
+          additional: additional areas
+        Returns:
+          Parent ID, additional areas
+    '''
+    if sid not in PARENT or not PARENT[sid]["parent"]:
+        return None, additional
+    psid = PARENT[sid]["parent"]
+    if psid:
+        if PARENT[psid]["name"]:
+            additional += "\n" + PARENT[psid]["name"]
+        if "parent" in PARENT[psid] and PARENT[psid]["parent"]:
+            psid, additional = traverse_struct(psid, additional)
+        return psid, additional
 
 
 def process_prefix(tloc):
@@ -176,10 +213,10 @@ def process_prefix(tloc):
         pre = "/".join(["tracings", tloc, date])
         names = get_prefixes(BUCKET, prefix=pre)
         if not names:
-            terminate_program("%s/%s has no prefixes on AWS S3" % (tloc, date))
-        mdata[date] = {}
-        populated = False
-        for name in tqdm(names, desc="Neuron tag", position=1, leave=False):
+            terminate_program(f"{tloc}/{date} has no prefixes on AWS S3")
+        mdata = {}
+        #for name in tqdm(names, desc="Neuron tag", position=1, leave=False):
+        for name in names:
             if name not in MAP[date]:
                 #LOGGER.warning("Name %s in not in mapping for %s", name, date)
                 continue
@@ -190,18 +227,41 @@ def process_prefix(tloc):
             key = "/".join([pre, name, "soma.txt"])
             somaloc = read_object(key)
             if somaloc:
+                LOGGER.debug("%s, %s, %s", name, somaloc, AREA[date])
                 payload["somaLocation"] = somaloc
-            mdata[date][MAP[date][name]] = payload
+                payload["injectionLocation"] = AREA[date]
+                newloc = AREA[date]
+                #newloc = somaloc.replace(",", "")
+                #if newloc not in STRUCT:
+                #    MISSING[somaloc] = True
+                #elif STRUCT[newloc]:
+                #    sid, additional = traverse_struct(STRUCT[newloc], "")
+                #    newloc += additional
+            swc_prefix = "/".join([pre, name])
+            for swc in ["consensus", "dendrite"]:
+                key = "/".join([swc_prefix, swc]) + ".swc"
+                if read_object(key):
+                    payload[swc] = "/".join(["../..", key])
+            mdata[MAP[date][name]] = payload
         if populated:
             key = "/".join(["neurons", tloc, date, "metadata.json"])
             COUNT["metadata"] += 1
+            payload = {"title": date + " MouseLight published neurons",
+                       "neurons": mdata}
             if ARG.WRITE:
                 # AWS S3
                 try:
                     obj = S3_RESOURCE.Object(BUCKET, key)
-                    result = obj.put(Body=json.dumps(mdata[date]))
+                    _ = obj.put(Body=json.dumps(payload))
                 except Exception as err:
                     terminate_program(TEMPLATE % (type(err).__name__, err.args))
+                if tloc == "tracing_complete":
+                    key = "/".join(["images", date, "neurons.json"])
+                    try:
+                        obj = S3_RESOURCE.Object(BUCKET, key)
+                        _ = obj.put(Body=json.dumps(payload))
+                    except Exception as err:
+                        terminate_program(TEMPLATE % (type(err).__name__, err.args))
 
 
 def process_neurons():
@@ -212,11 +272,21 @@ def process_neurons():
           None
     '''
     get_mapping()
-    for tloc in ("Finished_Neurons", "tracing_complete"):
+    choices = {"Finished neurons": "Finished_Neurons",
+               "Tracing complete": "tracing_complete"}
+    quest = [inquirer.Checkbox('checklist',
+                               message='Select tracings to process',
+                               choices=choices.keys(), default=choices)]
+    tracings = inquirer.prompt(quest)
+    for tloc in [choices[key] for key in tracings["checklist"]]:
         process_prefix(tloc)
     print(f"Dates in AWS S3:         {len(DATE)}")
     print(f"Missing neuron mappings: {len(MISSING_NEURON)}")
     print(f"Metadata files written:  {COUNT['metadata']}")
+    if MISSING:
+      print("Areas missing from Neuron Browser:")
+      for key in MISSING:
+          print(key)
 
 
 # -----------------------------------------------------------------------------
@@ -226,6 +296,8 @@ if __name__ == '__main__':
         description="Update neurons on AWS S3")
     PARSER.add_argument('--manifold', dest='MANIFOLD', action='store',
                         default='prod', choices=['dev', 'prod'], help='manifold')
+    PARSER.add_argument('--url', dest='URL', action='store',
+                        default='s3', choices=['http', 's3'], help='URL style (http or s3)')
     PARSER.add_argument('--write', dest='WRITE', action='store_true',
                         default=False,
                         help='Flag, Actually modify image state')
