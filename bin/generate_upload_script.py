@@ -13,6 +13,7 @@ import inquirer
 
 BASE = "/groups/mousebrainmicro/mousebrainmicro"
 IMAGE_BASE = ["/nrs/mouselight/SAMPLES", "/nearline/mouselight/data/RENDER_archive"]
+CARVEOUT_BASE = ["/nrs/funke/mouselight", "/nrs/funke/mouselight-v2"]
 BUCKET = "s3://janelia-mouselight-imagery"
 
 
@@ -59,7 +60,7 @@ def process_images(base, img):
 def process_registration(clu):
     ''' Write copy commands for registration files.
         Keyword arguments:
-          clu: clueter file handle
+          clu: cluster file handle
         Returns:
           None
     '''
@@ -77,7 +78,7 @@ def process_registration(clu):
 def process_segmentation(clu):
     ''' Write copy commands for segmentation files.
         Keyword arguments:
-          clu: clueter file handle
+          clu: cluster file handle
         Returns:
           None
     '''
@@ -110,7 +111,7 @@ def process_segmentation(clu):
 def process_tracings(clu):
     ''' Write copy commands for tracing files.
         Keyword arguments:
-          clu: clueter file handle
+          clu: cluster file handle
         Returns:
           None
     '''
@@ -169,6 +170,26 @@ def get_sample():
         ARG.SAMPLE = answer["sample"]
 
 
+def process_carveouts(crv):
+    ''' Write copy commands for carveouts.
+        Keyword arguments:
+          crv: carveouts file handle
+        Returns:
+          None
+    '''
+    for base in CARVEOUT_BASE:
+        cbase = "/".join([base, ARG.SAMPLE])
+        if not os.path.exists(cbase):
+            LOGGER.warning("Could not find %s", cbase)
+            continue
+        LOGGER.info(f"Using carveouts from {cbase}")
+        source = cbase + "/"
+        target = get_target("carveouts")
+        if os.path.exists(cbase):
+            print(source, target)
+            crv.write(f"aws s3 sync {source} {target} --only-show-errors --profile FlyLightPDSAdmin\n")
+    
+
 def process_sample():
     ''' Process the specified sample to create upload files.
         Keyword arguments:
@@ -179,7 +200,7 @@ def process_sample():
     get_sample()
     question = [inquirer.Checkbox("products",
                                   message="Enter products to upload",
-                                  choices=["images", "registration", "segmentation", "tracings"],
+                                  choices=["images", "registration", "segmentation", "tracings", "carveouts"],
                                   default=["images"],
                                  )
                ]
@@ -213,6 +234,9 @@ def process_sample():
                 process_segmentation(clu)
             if "tracings" in products:
                 process_tracings(clu)
+    if "carveouts" in products:
+        with open(f"{ARG.SAMPLE}_carveouts.sh", "w", encoding="utf8") as crv:
+            process_carveouts(crv)
 
 
 if __name__ == '__main__':
