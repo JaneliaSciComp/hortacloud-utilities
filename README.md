@@ -67,4 +67,5 @@ Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/shared
 ### carveouts
 
 Uses *bsub* to sync files from ```/nrs/funke/mouselight/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
+
 Uses *bsub* to sync files from ```/nrs/funke/mouselight-v2/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
