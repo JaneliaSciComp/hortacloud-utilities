@@ -6,16 +6,16 @@ to AWS S3.
 ## generate_upload_script.py
 
 This program will generate shell scripts containing AWS CLI commands to copy
-and sync files from the local file system to AWS S3. To run the program, you
-must specify a sample date in the form YYYY-MM-DD:
+and sync files from the local file system to AWS S3. To run the program, the
+user must specify a sample date in the form YYYY-MM-DD:
 
 ```
 python3 generate_upload_script.py --sample 2023-05-10
 ```
 
-If a sample is not specified, you will be prompted for one.
+If a sample is not specified, the user will be prompted for one.
 
-You will be prompted for the products to upload (defaults to images only):
+The user will be prompted for the products to upload (defaults to images only):
 
 ```
 [?] Enter products to upload:
@@ -76,8 +76,9 @@ This program will create and upload neuron data JSON files to the
 create and upload neuron data JSON files. The program first calls NeuronBrowser
 to create a mapping of dates to neurons.
 
-The user is them prompted to process finished neurons and/or tracing complete
-neurons.
+The user is then prompted to process finished neurons and/or tracing complete
+neurons. For every date, a metadata file is created that contains neurons
+associated with that date.
 
 ### Finished neurons
 Metadata files are created for each date and uploaded to ```s3://janelia-mouselight-imagery/neurons/Finished_Neurons/YYYY-MM-DD/metadata.json```. The metadata file will contain a list of neurons (with their original names) for that date. Example:
