@@ -44,7 +44,7 @@ Images will be copied/synced from one of two base directories:
 In the base directory, the following files will be uploaded:
 
 * sync files from ```ktx/``` in the base directory to ```s3://janelia-mouselight-imagery/images/YYYY-MM-DD/ktx/```
-* Copy the following files from base directory to ```s3://janelia-mouselight-imagery/images/YYYY-MM-DD```
+* Copy the following files from the base directory to ```s3://janelia-mouselight-imagery/images/YYYY-MM-DD```
   * ```default.0.tif```
   * ```default.1.tif```
   * ```tilebase.cache.yml```
