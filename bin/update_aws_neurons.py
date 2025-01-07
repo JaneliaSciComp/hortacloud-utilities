@@ -248,20 +248,24 @@ def process_prefix(tloc):
             COUNT["metadata"] += 1
             payload = {"title": date + " MouseLight published neurons",
                        "neurons": mdata}
+            # AWS S3
             if ARG.WRITE:
-                # AWS S3
                 try:
                     obj = S3_RESOURCE.Object(BUCKET, key)
                     _ = obj.put(Body=json.dumps(payload))
                 except Exception as err:
                     terminate_program(TEMPLATE % (type(err).__name__, err.args))
-                if tloc == "tracing_complete":
-                    key = "/".join(["images", date, "neurons.json"])
+            else:
+                LOGGER.debug(f"Put {BUCKET}/{key}")
+            if tloc == "tracing_complete":
+                key = "/".join(["images", date, "neurons.json"])
+                if ARG.WRITE:
                     try:
                         obj = S3_RESOURCE.Object(BUCKET, key)
                         _ = obj.put(Body=json.dumps(payload))
                     except Exception as err:
                         terminate_program(TEMPLATE % (type(err).__name__, err.args))
+                LOGGER.debug(f"Put {BUCKET}/{key}")
 
 
 def process_neurons():
@@ -276,7 +280,7 @@ def process_neurons():
                "Tracing complete": "tracing_complete"}
     quest = [inquirer.Checkbox('checklist',
                                message='Select tracings to process',
-                               choices=choices.keys(), default=choices)]
+                               choices=choices.keys())]
     tracings = inquirer.prompt(quest)
     for tloc in [choices[key] for key in tracings["checklist"]]:
         process_prefix(tloc)
