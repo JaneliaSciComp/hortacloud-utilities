@@ -69,3 +69,35 @@ Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/shared
 Uses *bsub* to sync files from ```/nrs/funke/mouselight/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
 
 Uses *bsub* to sync files from ```/nrs/funke/mouselight-v2/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
+
+## update_aws_neurons.py
+
+This program will create and upload neuron data JSON files to the
+create and upload neuron data JSON files. The program first calls NeuronBrowser
+to create a mapping of dates to neurons.
+
+The user is them prompted to process finished neurons and/or tracing complete
+neurons.
+
+### Finished neurons
+Metadata files are created for each date and uploaded to ```s3://janelia-mouselight-imagery/neurons/Finished_Neurons/YYYY-MM-DD/metadata.json```. The metadata file will contain a list of neurons (with their original names) for that date. Example:
+
+```
+{"title": "2014-06-24 MouseLight published neurons",
+ "neurons": {"AA0230": {"originalName": "G-001"},
+             "AA0231": {"originalName": "G-002"},
+             "AA0232": {"originalName": "G-003"},
+             "AA0233": {"originalName": "G-004"},
+             "AA0234": {"originalName": "G-005"},
+             "AA0235": {"originalName": "G-006"},
+             "AA0236": {"originalName": "G-007"},
+             "AA0237": {"originalName": "G-009"},
+             "AA0238": {"originalName": "G-010"},
+             "AA0239": {"originalName": "G-011"},
+             "AA0243": {"originalName": "G-012"},
+             "AA0240": {"originalName": "G-013"},
+             "AA0241": {"originalName": "G-014"},
+             "AA0242": {"originalName": "G-015"}
+            }
+}
+```
