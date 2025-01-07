@@ -7,7 +7,7 @@ to AWS S3.
 
 This program will generate shell scripts containing AWS CLI commands to copy
 and sync files from the local file system to AWS S3. To run the program, the
-user must specify a sample date in the form YYYY-MM-DD:
+user should specify a sample date in the form YYYY-MM-DD:
 
 ```
 python3 generate_upload_script.py --sample 2023-05-10
