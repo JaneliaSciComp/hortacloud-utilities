@@ -13,6 +13,8 @@ must specify a sample date in the form YYYY-MM-DD:
 python3 generate_upload_script.py --sample 2023-05-10
 ```
 
+If a sample is not specified, you will be prompted for one.
+
 You will be prompted for the products to upload (defaults to images only):
 
 ```
@@ -24,10 +26,11 @@ You will be prompted for the products to upload (defaults to images only):
    [ ] carveouts
 ```
 
-One or two shell scripts will be generated:
+One to three shell scripts will be generated:
 
-* YYYY-MM-DD_images.sh : copies and syncs image files to AWS S3
-* YYYY-MM-DD_cluster.sh : calls the compute cluster with *bsub* to copy/sync files to AWS S3
+* ```YYYY-MM-DD_images.sh``` : copies and syncs image files to AWS S3
+* ```YYYY-MM-DD_cluster.sh``` : calls the compute cluster with *bsub* to sync registration, segmentation, and tracings files to AWS S3
+* ```YYYY-MM-DD_carveouts.sh```: calls the compute cluster with *bsub* to sync carveout files to AWS S3
 
 Products will be copied as follows:
 
@@ -49,8 +52,19 @@ In the base directory, the following files will be uploaded:
 
 ### registration
 
+Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/registration/Database/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/registration/YYYY-MM-DD/```
+
 ### segmentation
+
+Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/YYYY-MM-DD/stitching-output/``` to ```s3://janelia-mouselight-imagery/segmentation/YYYY-MM-DD/```
 
 ### tracings
 
+Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/tracing_complete/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/tracings/tracing_complete/YYYY-MM-DD/```.
+
+Uses *bsub* to sync files from ```/groups/mousebrainmicro/mousebrainmicro/shared_tracing/Finished_Neurons/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/tracings/Finished_Neurons/YYYY-MM-DD/```.
+
 ### carveouts
+
+Uses *bsub* to sync files from ```/nrs/funke/mouselight/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
+Uses *bsub* to sync files from ```/nrs/funke/mouselight-v2/YYYY-MM-DD/``` to ```s3://janelia-mouselight-imagery/carveouts/YYYY-MM-DD/```.
