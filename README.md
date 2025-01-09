@@ -3,7 +3,7 @@
 This repository contains code for uploading neurons and associated JSON
 to AWS S3.
 
-# Setting up environment
+# Setting up a virtual environment
 
 In the bin directory:
 
