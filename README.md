@@ -3,11 +3,24 @@
 This repository contains code for uploading neurons and associated JSON
 to AWS S3.
 
+# Setting up environment
+
+In the bin directory:
+
+```
+python3 -m venv hortautil_venv
+source hortautil_venv/bin/activate
+pip3 install -r requirements.txt
+```
+
+The virtual environment is now ready for use.
+
+# Programs
+
 ## generate_upload_script.py
 
 This program will generate shell scripts containing AWS CLI commands to copy
-and sync files from the local file system to AWS S3. To run the program, the
-user should specify a sample date in the form YYYY-MM-DD:
+and sync files from the local file system to AWS S3. To run the program, the user should specify a sample date in the form YYYY-MM-DD:
 
 ```
 python3 generate_upload_script.py --sample 2023-05-10
