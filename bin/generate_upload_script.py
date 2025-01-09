@@ -243,7 +243,7 @@ if __name__ == '__main__':
     PARSER = argparse.ArgumentParser(
         description="Generate command files to upload MouseLight data")
     PARSER.add_argument('--sample', dest='SAMPLE', action='store',
-                        help='Sample date')
+                        required=True, help='Sample date')
     PARSER.add_argument('--verbose', dest='VERBOSE', action='store_true',
                         default=False, help='Flag, Chatty')
     PARSER.add_argument('--debug', dest='DEBUG', action='store_true',
